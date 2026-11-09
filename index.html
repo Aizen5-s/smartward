@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Ward – Civic Grievance Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif']},colors:{surface:'var(--surface)',card:'var(--card)',line:'var(--line)',ink:'var(--ink)',muted:'var(--muted)',soft:'var(--soft)'}}}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+:root{--surface:#ffffff;--card:#fff;--line:#e2e8f0;--ink:#0f172a;--muted:#64748b;--soft:#f1f5f9;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+
+
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 120px);scroll-behavior:smooth}
+body{background:var(--surface);color:var(--ink);font-family:Inter,system-ui,sans-serif;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--card);z-index:60}
+.inp{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:.5rem;padding:.625rem .75rem;font-size:.875rem;outline:none;transition:.15s}
+.inp:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.2)}
+.inp.err{border-color:#ef4444}
+.lbl{display:block;font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.375rem}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* Leaflet essentials, inlined (external stylesheets are blocked on hosted pages) */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;position:relative;outline:0;-webkit-tap-highlight-color:transparent;font:inherit}
+.leaflet-tile,.leaflet-marker-icon{user-select:none;-webkit-user-drag:none}
+.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}
+.leaflet-map-pane svg{z-index:200}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}.leaflet-right{right:0}
+.leaflet-right .leaflet-control{float:right;margin-right:10px}.leaflet-left .leaflet-control{margin-left:10px}
+.leaflet-top .leaflet-control{margin-top:10px}.leaflet-bottom .leaflet-control{margin-bottom:10px}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-container{cursor:crosshair}
+.leaflet-bar{border-radius:.5rem;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.leaflet-bar a{display:block;width:30px;height:30px;line-height:30px;text-align:center;text-decoration:none;font-weight:700;font-size:18px;background:var(--card);color:var(--ink);border-bottom:1px solid var(--line);cursor:pointer}
+.leaflet-bar a:last-child{border-bottom:0}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--card) 85%,transparent);color:var(--muted);font-size:10px;padding:1px 6px;border-radius:6px 0 0 0;margin:0!important}
+.leaflet-control-attribution a{color:#2563eb}
+.leaflet-tooltip{position:absolute;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:11px;white-space:nowrap}
+.map-bg{background-color:var(--soft);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),linear-gradient(115deg,transparent 48%,#cbd5e1 48%,#cbd5e1 52%,transparent 52%);background-size:32px 32px,32px 32px,180px 180px}
+.pin{width:28px;height:28px;background:#2563eb;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.pin::after{content:"";position:absolute;inset:7px;background:#fff;border-radius:50%}
+@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin .8s linear infinite}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<header class="sticky z-50 bg-card border-b border-line" style="top:env(safe-area-inset-top,0px)" id="top">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+    <a href="#top" class="flex items-center gap-3 min-w-0">
+      <span class="w-10 h-10 shrink-0 rounded-xl bg-blue-700 text-white grid place-items-center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10m14 11V10M9 21V10m6 11V10M2 10l10-7 10 7z"/></svg>
+      </span>
+      <span class="leading-tight min-w-0">
+        <span class="flex items-center gap-2 font-bold text-[15px]">Smart Ward <span class="mono text-[10px] font-semibold text-blue-600 bg-blue-500/10 border border-blue-500/30 rounded px-1.5 py-0.5">WARD 42-B</span></span>
+        <span class="block text-xs text-muted truncate">Municipal Civic Governance &amp; Grievance Portal</span>
+      </span>
+    </a>
+    <nav class="hidden md:flex items-center gap-1 text-sm font-medium text-muted">
+      
+      <a href="#report" class="px-3 py-2 rounded-lg bg-blue-500/10 text-blue-600 border border-blue-500/30">Report Issue</a>
+      <a href="#track" class="px-3 py-2 rounded-lg hover:bg-soft">Track Complaint</a>
+      <a href="#feed" class="px-3 py-2 rounded-lg hover:bg-soft">Public Feed</a>
+    </nav>
+    <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+      <span class="hidden lg:inline text-xs font-medium text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1.5">Citizen Helpline: 1916</span>
+      <button id="adminBtn" type="button" class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-3 py-1.5 hover:bg-emerald-500/20"><i class="w-1.5 h-1.5 rounded-full bg-emerald-500"></i><span class="hidden sm:inline">Admin Portal Active</span><span class="sm:hidden">Admin</span></button>
+      <button id="adminAvatar" type="button" aria-label="Open admin portal" class="w-9 h-9 rounded-full bg-slate-800 text-white text-xs font-semibold grid place-items-center ring-2 ring-line hover:ring-blue-500">MC</button>
+    </div>
+  </div>
+  <nav class="md:hidden flex gap-1 overflow-x-auto px-4 pb-2 text-sm font-medium text-muted">
+    
+    <a href="#report" class="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-600">Report Issue</a>
+    <a href="#track" class="px-3 py-1.5 rounded-lg">Track Complaint</a>
+    <a href="#feed" class="px-3 py-1.5 rounded-lg">Public Feed</a>
+  </nav>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+
+  <!-- HERO -->
+  <section class="bg-card border border-line rounded-2xl p-5 sm:p-8">
+    <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+      <ol class="flex items-center gap-2 text-muted">
+        <li>Portal</li><li>›</li><li>Ward Central Command</li><li>›</li>
+        <li class="text-blue-600 bg-blue-500/10 rounded px-2 py-0.5 font-medium">Grievance Intake</li>
+      </ol>
+      <span class="inline-flex items-center gap-2 text-blue-600 bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1 font-medium"><i class="w-1.5 h-1.5 rounded-full bg-blue-600"></i>Municipal SLA: 24h Initial Triage Guarantee</span>
+    </div>
+    <div class="mt-5 grid lg:grid-cols-[1fr_auto] gap-6 items-center">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Submit a Civic Complaint</h1>
+        <p class="mt-3 text-muted max-w-2xl leading-relaxed">Report neighborhood infrastructure deficiencies, sanitation issues, or hazards directly to municipal ward officers. Every grievance receives a verifiable trackable ticket and real-time GPS verification.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="flex items-center gap-3 border border-line rounded-xl p-3 bg-soft">
+          <span class="w-9 h-9 rounded-lg bg-emerald-500/15 text-emerald-600 grid place-items-center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+          <div><div class="font-bold">94.2% <span class="text-[10px] text-emerald-600">+1.4%</span></div><div class="text-[10px] tracking-wider text-muted">SLA RESOLUTION RATE</div></div>
+        </div>
+        <div class="flex items-center gap-3 border border-line rounded-xl p-3 bg-soft">
+          <span class="w-9 h-9 rounded-lg bg-blue-500/15 text-blue-600 grid place-items-center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <div><div class="font-bold">3.8 Hours</div><div class="text-[10px] tracking-wider text-muted">MEDIAN DISPATCH TIME</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORM -->
+  <section id="report" class="bg-card border border-line rounded-2xl overflow-hidden">
+    <div class="flex items-center justify-between gap-3 px-5 sm:px-8 py-4 border-b border-line">
+      <h2 class="flex items-center gap-3 font-bold"><span class="w-7 h-7 rounded-md bg-blue-600 text-white text-xs grid place-items-center">1</span>Civic Incident Intake &amp; Geospatial Tagging</h2>
+      <span class="hidden sm:block text-xs text-muted">Click map to set exact incident coordinates</span>
+    </div>
+    <!-- Flask: <form action="/api/complaints" method="post" enctype="multipart/form-data"> -->
+    <form id="form" action="/api/complaints" method="post" enctype="multipart/form-data" novalidate class="p-5 sm:p-8 grid lg:grid-cols-2 gap-8">
+      <div class="space-y-5">
+        <div>
+          <label class="lbl" for="title">Issue Title <span class="text-red-500">*</span></label>
+          <input id="title" name="title" maxlength="120" class="inp" placeholder="e.g., Hazardous Deep Pothole outside 5th Avenue Crossroad">
+        </div>
+        <div>
+          <label class="lbl" for="category">Grievance Category <span class="text-red-500">*</span></label>
+          <select id="category" name="category" class="inp">
+            <option value="">Select municipal classification category…</option>
+            <option>Road Pothole</option><option>Garbage Collection</option><option>Broken Streetlight</option>
+            <option>Drainage Problem</option><option>Water Leakage</option><option>Public Infrastructure</option><option>Other</option>
+          </select>
+        </div>
+        <div>
+          <div class="flex justify-between items-end"><label class="lbl" for="desc">Detailed Grievance Description <span class="text-red-500">*</span></label><span id="count" class="mono text-[11px] text-muted mb-1.5">0 / 1000 characters</span></div>
+          <textarea id="desc" name="description" rows="5" maxlength="1000" class="inp resize-y" placeholder="Provide specific location clues, severity, duration of the issue, and immediate safety concerns for municipal crew dispatch…"></textarea>
+        </div>
+        <div>
+          <span class="lbl">Photographic Evidence Upload</span>
+          <div id="drop" tabindex="0" class="relative border-2 border-dashed border-line rounded-xl bg-soft hover:border-blue-500 transition cursor-pointer p-5 text-center">
+            <input id="file" name="evidence" type="file" accept="image/jpeg,image/png,image/webp" class="hidden">
+            <div id="dropIdle" class="py-4">
+              <span class="mx-auto w-12 h-12 rounded-full bg-blue-500/15 text-blue-600 grid place-items-center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+              <p class="mt-3 text-sm"><span class="text-blue-600 font-medium">Click to upload photo</span> <span class="text-muted">or drag and drop image file</span></p>
+              <p class="mt-2 text-xs text-muted">Supported: JPG, PNG, WEBP (Max 5MB for on-site crew review)</p>
+            </div>
+            <div id="dropPrev" class="hidden">
+              <img id="prev" alt="Evidence preview" class="mx-auto max-h-44 rounded-lg object-contain">
+              <p id="prevName" class="mt-2 text-xs text-muted truncate"></p>
+              <button type="button" id="rmImg" class="mt-2 text-xs font-medium text-red-500 hover:underline">Remove photo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex items-start justify-between gap-3">
+          <div><span class="lbl !mb-0">Geospatial GPS Coordinate <span class="text-red-500">*</span></span><p class="text-xs text-muted">Pinpoints municipal dispatch crew within ±5m</p></div>
+          <button type="button" id="locate" class="text-xs font-medium text-blue-600 bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-1.5 hover:bg-blue-500/20">◎ Locate Me</button>
+        </div>
+        <div class="relative"><div id="map" class="map-bg h-80 rounded-xl border border-line"></div><p id="mapNote" class="hidden absolute z-[1000] left-3 right-3 bottom-8 pointer-events-none text-[11px] text-center bg-card border border-line rounded-lg px-3 py-1.5 text-muted">Street tiles can’t load in this preview. Pin placement still works; the full map appears when run on your own server.</p></div>
+        <input type="hidden" id="lat" name="latitude"><input type="hidden" id="lng" name="longitude">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="border border-line rounded-xl bg-soft px-3 py-2"><div class="text-[10px] tracking-wider text-muted">LATITUDE</div><div id="latB" class="mono text-sm font-medium">—</div></div>
+          <div class="border border-line rounded-xl bg-soft px-3 py-2"><div class="text-[10px] tracking-wider text-muted">LONGITUDE</div><div id="lngB" class="mono text-sm font-medium">—</div></div>
+        </div>
+        <div class="border border-line rounded-xl bg-soft px-3 py-2.5 text-sm"><div class="font-medium">Ward 42-B Central Sector, City Municipal Corporation</div><div class="text-[11px] text-muted">OpenStreetMap GIS Geo-Registered Node</div></div>
+        <label class="flex items-start gap-2.5 text-xs text-muted cursor-pointer"><input id="certify" name="certify" type="checkbox" class="mt-0.5 w-4 h-4 accent-blue-600"><span>I certify this report represents a genuine community civic issue under the Ward Municipal Grievance Code (Penalties apply for deliberate falsehoods).</span></label>
+        <p id="formMsg" role="alert" class="hidden text-sm text-red-500"></p>
+        <button id="submitBtn" type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 disabled:cursor-wait text-white font-semibold tracking-wide rounded-xl py-3.5 shadow-lg shadow-blue-600/25 transition">
+          <svg id="sendIco" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
+          <svg id="spinIco" class="spin hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round"/></svg>
+          <span id="btnTxt">TRANSMIT COMPLAINT TO WARD</span>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- FEED -->
+  <section id="feed">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+      <div>
+        <h2 class="text-xl font-bold flex items-center gap-2">Live Ward Grievance Feed <span id="active" class="text-xs font-medium text-blue-600 bg-blue-500/10 rounded-full px-2.5 py-0.5">0 Active Tickets</span></h2>
+        <p class="text-xs text-muted mt-1">Public transparent audit log of complaints filed in this sector</p>
+      </div>
+      <div id="tabs" class="flex bg-card border border-line rounded-lg p-1 text-xs font-medium text-muted overflow-x-auto">
+        <button data-f="all" class="px-3 py-1.5 rounded-md">All Issues</button><button data-f="Pending" class="px-3 py-1.5 rounded-md">Pending</button><button data-f="In Progress" class="px-3 py-1.5 rounded-md">In Progress</button><button data-f="Resolved" class="px-3 py-1.5 rounded-md">Resolved</button>
+      </div>
+    </div>
+    <div id="grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+  </section>
+
+  <!-- TRACK -->
+  <section id="track" class="bg-card border border-line rounded-2xl p-5 sm:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <span class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-600 grid place-items-center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 13l2 2 4-4"/></svg></span>
+        <div><h3 class="font-bold">Check Existing Complaint Status</h3><p class="text-xs text-muted">Enter your reference code to inspect real-time municipal inspection notes.</p></div>
+      </div>
+      <form id="trackForm" class="flex gap-2 w-full sm:w-auto">
+        <input id="tkt" class="inp mono sm:w-64" placeholder="E.G. TKT-2026-0891" aria-label="Ticket reference code">
+        <button class="bg-slate-900 dark:bg-slate-100 text-white rounded-lg px-4 text-sm font-medium" style="background:var(--ink);color:var(--card)">Search</button>
+      </form>
+    </div>
+    <div id="trackOut" class="hidden mt-4 border border-line rounded-xl bg-soft p-4 text-sm"></div>
+  </section>
+</main>
+
+<footer class="border-t border-line bg-card mt-8">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-wrap justify-between gap-3 text-xs text-muted">
+    <span><b class="text-ink">Smart Ward Municipal Portal</b> • Official Civic Governance Framework</span>
+    <span class="flex flex-wrap gap-x-5 gap-y-1"><span>Citizen Charter</span><span>Grievance Escalation Matrix</span><span>Privacy &amp; Data Ethics</span><span>Ward Control Room</span></span>
+  </div>
+</footer>
+
+<div id="admin" class="hidden fixed inset-0 z-[80] bg-black/50 p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Admin portal">
+  <div class="bg-card border border-line rounded-2xl shadow-2xl max-w-3xl mx-auto my-6">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-line">
+      <div><h2 class="font-bold">Admin Portal – Ticket Management</h2><p class="text-xs text-muted">Update ticket status or remove entries. Changes appear instantly in the public feed.</p></div>
+      <button id="adminClose" type="button" aria-label="Close" class="w-8 h-8 rounded-lg hover:bg-soft text-lg leading-none">×</button>
+    </div>
+    <div id="adminStats" class="grid grid-cols-3 gap-3 px-5 pt-4"></div>
+    <div id="adminList" class="p-5 space-y-2"></div>
+    <div class="px-5 pb-5 flex justify-end"><button id="adminReset" type="button" class="text-xs font-medium text-muted hover:text-ink border border-line rounded-lg px-3 py-1.5">Reset demo data</button></div>
+  </div>
+</div>
+<div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 z-[70] max-w-[92vw] bg-emerald-600 text-white text-sm font-medium rounded-xl px-5 py-3 shadow-xl" style="bottom:calc(env(safe-area-inset-bottom,0px) + 16px)"></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var KEY='smartward.reports.v1', DEFAULT=[12.9716,77.5946];
+var CATS={'Road Pothole':'bg-orange-500','Garbage Collection':'bg-emerald-600','Broken Streetlight':'bg-violet-600','Drainage Problem':'bg-cyan-600','Water Leakage':'bg-sky-600','Public Infrastructure':'bg-slate-600','Other':'bg-gray-500'};
+var STAT={'Pending':'bg-amber-500/15 text-amber-600','In Progress':'bg-blue-500/15 text-blue-600','Resolved':'bg-emerald-500/15 text-emerald-600'};
+var NOTES={'Pending':'Awaiting ward officer triage (24h SLA).','In Progress':'Crew dispatched; on-site inspection underway.','Resolved':'Work completed and verified by ward inspector.'};
+var now=Date.now(), min=60000;
+var SEED=[
+ {ticket:'TKT-2026-0891',title:'Severe Asphalt Cave-in near Ring Road Exit 3',category:'Road Pothole',status:'Pending',description:'Large crater formed post-monsoon rain. Depth exceeds 15cm, causing continuous traffic jam and two-wheeler skids.',lat:12.9719,lng:77.5937,t:now-12*min},
+ {ticket:'TKT-2026-0842',title:'Overflowing Community Dumpster on Market Lane',category:'Garbage Collection',status:'In Progress',description:'Biomedical and organic waste spilling onto pedestrian pavement since 48 hours. Urgent sanitation vehicle needed.',lat:12.9734,lng:77.5962,t:now-120*min},
+ {ticket:'TKT-2026-0790',title:'Three Consecutive Pole Outages near Girls High School',category:'Broken Streetlight',status:'Pending',description:'Complete blackout on the 300-meter stretch behind municipal school creating security vulnerability at evening hours.',lat:12.9698,lng:77.5912,t:now-300*min}];
+var reports=load(), filter='all', evidence=null;
+
+function load(){try{var r=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(r)&&r.length)return r}catch(e){}return SEED.slice()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(reports))}catch(e){try{localStorage.setItem(KEY,JSON.stringify(reports.map(function(r){var c=Object.assign({},r);delete c.img;return c})))}catch(e2){}}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function ago(t){var m=Math.max(1,Math.round((Date.now()-t)/min));if(m<60)return m+' mins ago';var h=Math.round(m/60);if(h<24)return h+(h===1?' hour':' hours')+' ago';var d=Math.round(h/24);return d+(d===1?' day':' days')+' ago'}
+function toast(msg){var t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.id);toast.id=setTimeout(function(){t.classList.add('hidden')},4500)}
+
+/* ---------- MAP ---------- */
+var map=L.map('map',{zoomControl:true}).setView(DEFAULT,15);
+var tiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'}).addTo(map);
+tiles.on('tileerror',function(){$('mapNote').classList.remove('hidden')});
+tiles.on('tileload',function(){$('mapNote').classList.add('hidden')});
+var icon=L.divIcon({className:'',html:'<div class="pin"></div>',iconSize:[28,28],iconAnchor:[14,34]});
+var pin=null, layer=L.layerGroup().addTo(map);
+function setPoint(lat,lng,pan){
+  if(pin)pin.setLatLng([lat,lng]);else pin=L.marker([lat,lng],{icon:icon,draggable:true,zIndexOffset:1000}).addTo(map).on('dragend',function(){var p=pin.getLatLng();setPoint(p.lat,p.lng)});
+  $('lat').value=lat.toFixed(6);$('lng').value=lng.toFixed(6);
+  $('latB').textContent=Math.abs(lat).toFixed(6)+'° '+(lat>=0?'N':'S');
+  $('lngB').textContent=Math.abs(lng).toFixed(6)+'° '+(lng>=0?'E':'W');
+  if(pan)map.setView([lat,lng],Math.max(map.getZoom(),16));
+}
+map.on('click',function(e){setPoint(e.latlng.lat,e.latlng.lng)});
+setPoint(DEFAULT[0],DEFAULT[1]);
+setTimeout(function(){map.invalidateSize()},200);
+$('locate').onclick=function(){
+  if(!navigator.geolocation)return toast('Geolocation is not supported on this device.');
+  var b=$('locate');b.textContent='Locating…';
+  navigator.geolocation.getCurrentPosition(function(p){b.textContent='◎ Locate Me';setPoint(p.coords.latitude,p.coords.longitude,true)},function(){b.textContent='◎ Locate Me';toast('Unable to fetch location. Click the map instead.')},{enableHighAccuracy:true,timeout:8000});
+};
+
+/* ---------- FORM CONTROLS ---------- */
+$('desc').addEventListener('input',function(){$('count').textContent=this.value.length+' / 1000 characters'});
+var drop=$('drop'),file=$('file');
+drop.onclick=function(e){if(e.target.id!=='rmImg')file.click()};
+drop.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();file.click()}};
+['dragenter','dragover'].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.add('border-blue-500')})});
+['dragleave','drop'].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.remove('border-blue-500')})});
+drop.addEventListener('drop',function(e){if(e.dataTransfer.files[0]){try{file.files=e.dataTransfer.files}catch(x){}handleFile(e.dataTransfer.files[0])}});
+file.onchange=function(){if(file.files[0])handleFile(file.files[0])};
+$('rmImg').onclick=function(e){e.stopPropagation();clearImg()};
+function clearImg(){evidence=null;file.value='';$('dropPrev').classList.add('hidden');$('dropIdle').classList.remove('hidden')}
+function handleFile(f){
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type))return showErr('Please upload a JPG, PNG or WEBP image.');
+  if(f.size>5*1024*1024)return showErr('Image exceeds the 5MB limit.');
+  showErr('');
+  var r=new FileReader();
+  r.onload=function(){
+    var im=new Image();
+    im.onload=function(){ // downscale so thumbnails stay light in storage
+      var s=Math.min(1,520/im.width),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      evidence=c.toDataURL('image/jpeg',.72);
+      $('prev').src=evidence;$('prevName').textContent=f.name;
+      $('dropIdle').classList.add('hidden');$('dropPrev').classList.remove('hidden');
+    };
+    im.src=r.result;
+  };
+  r.readAsDataURL(f);
+}
+function showErr(m){var e=$('formMsg');e.textContent=m;e.classList.toggle('hidden',!m)}
+
+/* ---------- SUBMIT ---------- */
+$('form').addEventListener('submit',function(e){
+  e.preventDefault();
+  var title=$('title').value.trim(),cat=$('category').value,desc=$('desc').value.trim();
+  ['title','category','desc'].forEach(function(i){$(i).classList.remove('err')});
+  var bad=[];if(title.length<5)bad.push('title');if(!cat)bad.push('category');if(desc.length<20)bad.push('desc');
+  bad.forEach(function(i){$(i).classList.add('err')});
+  if(bad.length)return showErr('Please add a title (5+ chars), choose a category and describe the issue (20+ chars).');
+  if(!$('lat').value)return showErr('Please set the incident location on the map.');
+  if(!$('certify').checked)return showErr('Please accept the legal certification to proceed.');
+  showErr('');
+  var btn=$('submitBtn');btn.disabled=true;$('sendIco').classList.add('hidden');$('spinIco').classList.remove('hidden');$('btnTxt').textContent='TRANSMITTING…';
+  // Flask hook: replace the timeout with  await fetch('/api/complaints',{method:'POST',body:new FormData(this)})
+  setTimeout(function(){
+    var n=String(Math.floor(1000+Math.random()*9000));
+    var r={ticket:'TKT-2026-'+n,title:title,category:cat,status:'Pending',description:desc,lat:+$('lat').value,lng:+$('lng').value,t:Date.now(),img:evidence};
+    reports.unshift(r);save();render();
+    $('form').reset();clearImg();$('count').textContent='0 / 1000 characters';
+    btn.disabled=false;$('sendIco').classList.remove('hidden');$('spinIco').classList.add('hidden');$('btnTxt').textContent='TRANSMIT COMPLAINT TO WARD';
+    toast('Complaint filed. Your ticket ID is '+r.ticket);
+    $('feed').scrollIntoView();
+  },1300);
+});
+
+/* ---------- FEED ---------- */
+function render(){
+  var list=reports.filter(function(r){return filter==='all'||r.status===filter});
+  $('grid').innerHTML=list.length?list.map(function(r){
+    return '<article class="bg-card border border-line rounded-2xl overflow-hidden flex flex-col">'+
+    '<div class="relative h-40 bg-indigo-500/15 grid place-items-center">'+
+      (r.img?'<img src="'+r.img+'" alt="Evidence for '+esc(r.ticket)+'" class="absolute inset-0 w-full h-full object-cover">':'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.7"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg>')+
+      '<span class="absolute top-3 left-3 text-[11px] font-semibold text-white rounded-full px-2.5 py-1 '+(CATS[r.category]||CATS.Other)+'">'+esc(r.category)+'</span>'+
+      '<span class="absolute top-3 right-3 text-[10px] font-semibold rounded-full px-2 py-1 bg-card '+(STAT[r.status]||'').split(' ')[1]+'">● '+esc(r.status)+'</span></div>'+
+    '<div class="p-4 flex-1 flex flex-col"><div class="flex justify-between mono text-[11px] text-muted"><span>#'+esc(r.ticket)+'</span><span>'+ago(r.t)+'</span></div>'+
+    '<h3 class="mt-2 font-semibold text-sm leading-snug">'+esc(r.title)+'</h3>'+
+    '<p class="mt-2 text-xs text-muted leading-relaxed line-clamp-3">'+esc(r.description)+'</p></div>'+
+    '<div class="flex items-center justify-between px-4 py-3 border-t border-line text-[11px]"><span class="mono text-muted">'+r.lat.toFixed(4)+'° N, '+r.lng.toFixed(4)+'° E</span>'+
+    '<button data-lat="'+r.lat+'" data-lng="'+r.lng+'" class="loc font-medium text-blue-600 hover:underline">Locate ↗</button></div></article>';
+  }).join(''):'<p class="col-span-full text-center text-sm text-muted py-10 bg-card border border-line rounded-2xl">No complaints in this view.</p>';
+  $('active').textContent=reports.filter(function(r){return r.status!=='Resolved'}).length+' Active Tickets';
+  if(window.__adm&&!window.__adm.classList.contains('hidden'))renderAdmin();
+  layer.clearLayers();
+  reports.forEach(function(r){L.circleMarker([r.lat,r.lng],{radius:6,color:'#fff',weight:2,fillColor:r.status==='Resolved'?'#16a34a':'#f59e0b',fillOpacity:1}).bindTooltip(r.ticket).addTo(layer)});
+  Array.prototype.forEach.call($('tabs').children,function(b){var on=b.dataset.f===filter;b.className='px-3 py-1.5 rounded-md whitespace-nowrap '+(on?'bg-blue-600 text-white':'hover:bg-soft')});
+}
+$('tabs').onclick=function(e){if(e.target.dataset.f){filter=e.target.dataset.f;render()}};
+$('grid').onclick=function(e){var b=e.target.closest('.loc');if(!b)return;
+  $('report').scrollIntoView();map.flyTo([+b.dataset.lat,+b.dataset.lng],17,{duration:1})};
+
+/* ---------- TRACK ---------- */
+$('trackForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var q=$('tkt').value.trim().toUpperCase(),o=$('trackOut'),r=reports.filter(function(x){return x.ticket===q})[0];
+  o.classList.remove('hidden');
+  o.innerHTML=!q?'Enter a reference code such as TKT-2026-0891.':r
+    ?'<div class="flex flex-wrap items-center gap-2"><b class="mono">'+esc(r.ticket)+'</b><span class="text-xs font-semibold rounded-full px-2 py-0.5 '+STAT[r.status]+'">'+esc(r.status)+'</span><span class="text-xs text-muted">Filed '+ago(r.t)+'</span></div><p class="mt-2 font-medium">'+esc(r.title)+'</p><p class="mt-1 text-muted">Inspection note: '+NOTES[r.status]+'</p>'
+    :'No complaint found for <b class="mono">'+esc(q)+'</b>. Please check the code and try again.';
+});
+
+/* ---------- ADMIN PORTAL ---------- */
+var adm=window.__adm=$('admin');
+function openAdmin(){renderAdmin();adm.classList.remove('hidden');document.body.style.overflow='hidden'}
+function closeAdmin(){adm.classList.add('hidden');document.body.style.overflow=''}
+$('adminBtn').onclick=openAdmin;$('adminAvatar').onclick=openAdmin;$('adminClose').onclick=closeAdmin;
+adm.addEventListener('click',function(e){if(e.target===adm)closeAdmin()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAdmin()});
+function renderAdmin(){
+  var c={'Pending':0,'In Progress':0,'Resolved':0};reports.forEach(function(r){c[r.status]=(c[r.status]||0)+1});
+  $('adminStats').innerHTML=Object.keys(c).map(function(k){return '<div class="border border-line rounded-xl bg-soft px-3 py-2"><div class="text-[10px] tracking-wider text-muted">'+k.toUpperCase()+'</div><div class="text-xl font-bold">'+c[k]+'</div></div>'}).join('');
+  $('adminList').innerHTML=reports.length?reports.map(function(r,i){
+    return '<div class="flex flex-wrap items-center gap-3 border border-line rounded-xl px-3 py-2.5"><div class="min-w-0 flex-1"><div class="mono text-[11px] text-muted">'+esc(r.ticket)+' • '+esc(r.category)+'</div><div class="text-sm font-medium truncate">'+esc(r.title)+'</div></div>'+
+    '<select data-i="'+i+'" class="inp !w-auto !py-1.5" aria-label="Status for '+esc(r.ticket)+'">'+['Pending','In Progress','Resolved'].map(function(s){return '<option'+(s===r.status?' selected':'')+'>'+s+'</option>'}).join('')+'</select>'+
+    '<button data-del="'+i+'" type="button" class="text-xs font-medium text-red-500 hover:underline">Delete</button></div>';
+  }).join(''):'<p class="text-sm text-muted text-center py-6">No tickets on file.</p>';
+}
+$('adminList').addEventListener('change',function(e){var i=e.target.dataset.i;if(e.target.tagName==='SELECT'&&i!==undefined){reports[+i].status=e.target.value;save();render()}});
+$('adminList').addEventListener('click',function(e){var d=e.target.dataset.del;if(d!==undefined){reports.splice(+d,1);save();render()}});
+$('adminReset').onclick=function(){reports=JSON.parse(JSON.stringify(SEED));save();render();toast('Demo data restored.')};
+
+render();
+})();
+</script>
+</body>
+</html>
